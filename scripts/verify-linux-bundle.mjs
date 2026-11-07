@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { access, mkdtemp, open, readdir, rm } from "node:fs/promises";
+import { access, mkdtemp, open, readFile, readdir, rm } from "node:fs/promises";
 import { constants } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
@@ -9,6 +9,7 @@ import { runtimeManifest } from "./runtime-manifest.mjs";
 
 if (process.platform !== "linux" || process.arch !== "x64") throw new Error("Verifique o AppImage dentro do build Linux x86_64.");
 const manifest = runtimeManifest();
+const config = JSON.parse(await readFile(new URL("../src-tauri/tauri.conf.json", import.meta.url), "utf8"));
 const directory = resolve("src-tauri/target/release/bundle/appimage");
 const packages = (await readdir(directory)).filter((name) => name.endsWith(".AppImage"));
 if (packages.length !== 1) throw new Error("Esperado exatamente um AppImage no diretório de build.");
@@ -26,7 +27,7 @@ try {
   execFileSync(join(directory, packages[0]), ["--appimage-extract"], { cwd: temporary, stdio: "ignore" });
   const appDir = join(temporary, "squashfs-root");
   const executable = join(appDir, "usr/bin/coplayer");
-  const runtime = join(appDir, "usr/lib/coplayer/runtime/codex");
+  const runtime = join(appDir, "usr/lib", config.productName, "runtime/codex");
   await verifyElf(executable);
   await verifyElf(runtime);
   const hash = createHash("sha256");
