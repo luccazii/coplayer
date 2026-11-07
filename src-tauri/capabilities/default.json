@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Experimental proof windows; listen to native capture and error events",
+  "windows": ["main", "coplayer-icon"],
+  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten"]
+}

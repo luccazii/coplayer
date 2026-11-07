@@ -1,0 +1,8 @@
+{
+  "version": "0.159.3",
+  "platform": "linux",
+  "architecture": "x64",
+  "artifact": "codex-x86_64-unknown-linux-musl.tar.gz",
+  "archiveSha256": "b48ca1b2d6b1bf42b944e02c3d937c898e24651916684cdc35fdedf31b291bcb",
+  "executableSha256": "8bf204b36a2f6dd0dab73aa2f639892e67ef9ac8befccb4a05b1496ebf25c479"
+}

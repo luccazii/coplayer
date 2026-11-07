@@ -1,0 +1,8 @@
+{
+  "version": "0.159.3",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "artifact": "codex-aarch64-apple-darwin.tar.gz",
+  "archiveSha256": "51de50a39ea592b5b0a64ae0474548c282181cb6b96d9bd08965a682ae12774c",
+  "executableSha256": "4d210f7c5a18fd0386434df23b5bdbb8c0e7257d3e8a2b30b0769c8bbe99a878"
+}

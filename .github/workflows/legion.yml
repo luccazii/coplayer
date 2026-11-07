@@ -1,0 +1,76 @@
+name: Legion Linux package
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, 'codex/legion-*']
+  pull_request:
+    paths:
+      - '.github/workflows/legion.yml'
+      - 'src/**'
+      - 'src-tauri/**'
+      - 'scripts/**'
+      - 'package*.json'
+      - 'rust-toolchain.toml'
+      - '.nvmrc'
+      - 'vite.config.ts'
+      - 'tsconfig*.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: legion-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  appimage:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      APPIMAGE_EXTRACT_AND_RUN: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config curl wget file libwebkit2gtk-4.1-dev \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev \
+            patchelf libfuse2 squashfs-tools xdg-utils
+      - name: Install pinned Rust toolchain
+        run: rustup show
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: npm run prepare:runtime
+      - run: npm run build
+      - run: npm run check:rust
+      - run: npm run test:rust
+      - run: npm run build:desktop:linux
+      - name: Assemble Legion test package
+        run: |
+          mkdir -p artifacts/legion
+          cp src-tauri/target/release/bundle/appimage/*.AppImage artifacts/legion/Coplayer-Linux-x86_64.AppImage
+          cp scripts/linux/start-coplayer.sh artifacts/legion/
+          cp docs/legion-proof.md artifacts/legion/LEIA-ME.md
+          chmod 755 artifacts/legion/*.AppImage artifacts/legion/start-coplayer.sh
+          cd artifacts/legion
+          sha256sum Coplayer-Linux-x86_64.AppImage start-coplayer.sh LEIA-ME.md > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coplayer-legion-linux-x86_64-${{ github.sha }}
+          path: artifacts/legion/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0

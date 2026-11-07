@@ -1,0 +1,42 @@
+# Private, managed configuration for the experimental consultative proof.
+# Never merge the player's Codex configuration into this file.
+model_provider = "openai"
+forced_login_method = "chatgpt"
+cli_auth_credentials_store = "file"
+approval_policy = "never"
+sandbox_mode = "read-only"
+web_search = "disabled"
+project_doc_max_bytes = 0
+mcp_servers = {}
+
+[history]
+persistence = "none"
+
+[analytics]
+enabled = false
+
+[features]
+shell_tool = false
+unified_exec = false
+shell_snapshot = false
+code_mode = false
+code_mode_host = false
+apps = false
+plugins = false
+remote_plugin = false
+browser_use = false
+browser_use_external = false
+computer_use = false
+image_generation = false
+view_image = false
+multi_agent = false
+multi_agent_v2 = false
+hooks = false
+memories = false
+skill_search = false
+skill_mcp_dependency_install = false
+skip_host_skill_discovery = true
+sleep_tool = false
+goals = false
+workspace_dependencies = false
+request_permissions_tool = false

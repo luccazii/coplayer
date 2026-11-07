@@ -1,0 +1,14 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+*.tsbuildinfo
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+.local/
+artifacts/
+src-tauri/runtime/
+src-tauri/native/bin/

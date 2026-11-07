@@ -1,0 +1,52 @@
+# Contratos da base local — 0.5
+
+Consolidação inicial para macOS. O jogador adiou a 0.4/Legion; o núcleo não declara suporte Linux ou Gaming Mode. Os contratos de plataforma podem mudar após essa prova. Campanhas, chats e histórico de análises começam nas subfases 1.1–1.4.
+
+## Responsabilidades
+
+- `platform`: seleciona janela por ID/PID, consulta permissões e executa captura/foco pelo bridge macOS. Oculta e restaura as superfícies do Coplayer; fornece a imagem ao armazenamento. Não chama o provedor.
+- `storage`: valida imagens, aplica limites, emite IDs, controla arquivos e catálogo SQLite. Não conhece janelas, autenticação ou análise.
+- `provider`: gerencia app-server, autenticação e estados da análise. Resolve IDs de anexos importados no armazenamento; não aceita caminhos enviados pela interface. Uma análise ativa impede importação/remoção na sua coleção.
+- `src/lib`: DTOs e chamadas Tauri. `Attachment` é compartilhado pelas duas provas; a interface apresenta o estado e não decide a validade do arquivo.
+
+As coleções `capture` e `import` são independentes nesta etapa. A 1.2 fará a associação explícita entre anexos e mensagens de uma campanha/chat. Nenhuma captura do jogo é promovida automaticamente a entrada do modelo.
+
+## IPC
+
+`Attachment`: `id`, `name`, `mime`, `bytes`, `width`, `height`, `createdAtMs`, `available`, `previewDataUrl`. Sem caminhos de disco. Arquivo ausente ou com hash divergente mantém metadados visíveis, com `available=false` e preview vazio; o envio é rejeitado pelo núcleo.
+
+`provider_images` recupera anexos importados; `platform_status` recupera capturas. `provider_import_images` abre o seletor nativo e adiciona um lote completo ou nenhum. Remoção requer ID e verifica a coleção. `provider_analyze` resolve IDs antes de iniciar a análise; duplicatas, IDs de outra coleção e arquivos adulterados são recusados. `platform-capture` só é emitido depois de persistir o anexo; a UI elimina duplicatas por ID.
+
+`get_attachment_policy` fornece os limites vigentes para as duas telas. Comandos mutáveis retornam sucesso ou erro em português; as telas recarregam o estado autoritativo quando necessário. Os eventos do provedor continuam isolados por geração de processo, thread e turn, com estados terminais distintos. Reinício não reenvia análises nem inicia o runtime automaticamente.
+
+Os próximos contratos de domínio deverão incluir `campaignId`, `chatId` e `requestId`, validados pelo Rust; IDs de contexto virão do núcleo. Esses campos não são adicionados ficticiamente às provas sem campanhas.
+
+## Armazenamento e recuperação
+
+Raiz: diretório local do aplicativo, subdiretório `data-v1/`:
+
+- `coplayer.sqlite3`: catálogo, SHA-256 e estado de exclusão. Migração SQL transacional e versão em `PRAGMA user_version`; versão mais nova é recusada sem downgrade.
+- `attachments/`: PNG/JPEG com nomes gerados internamente. Arquivos escritos e sincronizados antes do commit dos metadados. Falha no lote reverte o catálogo e remove arquivos criados pelo lote.
+- `staging/`: saída temporária da captura nativa; removida após persistência/falha e reconciliada ao iniciar.
+
+Diretórios privados `0700`, banco e anexos `0600` no macOS. SQLite embutido por `rusqlite`, sem instalação de serviço ou SQLite pelo jogador. Conexão com bloqueio exclusivo impede duas instâncias de reconciliar arquivos simultaneamente; tempo de espera de cinco segundos. A base não configura workspaces concorrentes nem sincronização.
+
+Excluir primeiro grava um marcador no banco, depois remove o arquivo. Se houver interrupção, o anexo não reaparece; a próxima abertura tenta concluir a limpeza. Arquivos sem registro vivo são limpos somente quando têm nomes gerados por este catálogo dentro de suas pastas. Não há varredura ou limpeza das pastas antigas `proof-0.2/images` e `platform-proof/captures`.
+
+O runtime continua em `proof-0.2/runtime-home` para preservar a autenticação isolada existente. Seus bancos/logs não pertencem ao catálogo Coplayer. Remover o arquivo gerenciado não comprova exclusão de cópias internas do runtime ou retenção remota; H08 completo permanece na 2.7.
+
+## Limites locais
+
+- Quatro anexos por coleção de prova.
+- 8 MiB por imagem e 24 MiB por coleção.
+- PNG/JPEG decodificáveis, no máximo 4096 pixels por lado; leitura e alocação limitadas.
+- Captura nativa reduz a resolução proporcionalmente até 4096 pixels; importação acima do limite é rejeitada, sem alteração silenciosa do original.
+- Pergunta: 16.000 bytes; resposta: 256 KiB, com falha explícita ao exceder.
+
+São decisões locais para o protótipo; não representam limites publicados da assinatura. A associação futura de anexos a mensagens preservará a validação no núcleo.
+
+## Empacotamento
+
+`src-tauri/runtime-manifest.json` (macOS ARM64) e `src-tauri/runtime-manifest.linux-x64.json` (Linux x86_64) fixam versão, plataforma, artefato e hashes. O preparador seleciona o manifesto pelo ambiente de build e recusa plataformas não definidas; versão e hash esperado são compilados no adaptador Rust conforme o alvo. `npm run build:desktop` executa também `verify:bundle`, verificando identidade, mínimo macOS 14.0, executáveis e SHA-256 do runtime dentro do pacote. `npm run build:desktop:linux` extrai o AppImage para verificar executáveis ELF x86_64, hash do runtime e execução de `--version`. A prova Linux é inicial e não comprova assinatura, captura ou Gaming Mode.
+
+Node é somente ferramenta de desenvolvimento/build. O aplicativo distribui Rust, WebView, SQLite e runtime fixado. Nenhuma prova desta etapa equivale à instalação limpa, assinatura/notarização Apple ou validação de Gaming Mode.

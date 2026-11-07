@@ -1,0 +1,37 @@
+{
+  "name": "coplayer",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": "^22.18.0 || >=24.0.0"
+  },
+  "scripts": {
+    "prepare:runtime": "node scripts/prepare-runtime.mjs",
+    "dev": "vite",
+    "dev:desktop": "tauri dev",
+    "check:frontend": "vue-tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
+    "check:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check && cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings",
+    "check": "npm run check:frontend && npm run check:rust",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml --locked",
+    "build": "npm run check:frontend && vite build",
+    "build:desktop": "tauri build --bundles app && npm run verify:bundle",
+    "build:desktop:linux": "tauri build --bundles appimage && node scripts/verify-linux-bundle.mjs",
+    "build:legion": "node scripts/build-legion.mjs",
+    "verify:bundle": "node scripts/verify-bundle.mjs",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "vue": "^3.5.13",
+    "@tauri-apps/api": "^2"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@vitejs/plugin-vue": "^6.0.7",
+    "typescript": "~6.0.3",
+    "vite": "^8.0.16",
+    "vue-tsc": "^3.3.5",
+    "@tauri-apps/cli": "^2"
+  }
+}
