@@ -8,7 +8,7 @@ Subfase 0.1 concluída em 2026-11-07: base desktop Tauri 2, Rust, Vue 3 e TypeSc
 
 ## Desenvolvimento
 
-A prova **0.4 foi retomada** para o Legion Go S com SteamOS. Pacote Linux aprovado na CI e disponível na [pré-release experimental](https://github.com/luccazii/coplayer/releases/tag/v0.1.0-legion.1); roteiro no [guia do Legion](docs/legion-proof.md). Captura, overlay e foco Linux ainda não estão implementados; a validação no aparelho permanece pendente.
+A prova **0.4 foi retomada** para o Legion Go S com SteamOS. Pacote Linux aprovado na CI e disponível na [pré-release experimental](https://github.com/luccazii/coplayer/releases/tag/v0.1.0-legion.1); roteiro no [guia do Legion](docs/legion-proof.md). O adaptador experimental X11/XWayland implementa captura isolada, painel/ícone e solicitação de foco. A validação em Gaming Mode no aparelho permanece pendente.
 
 ```sh
 nvm use

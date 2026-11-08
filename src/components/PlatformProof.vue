@@ -82,17 +82,18 @@ onBeforeUnmount(() => { disposed = true; subscriptions.forEach((unlisten) => unl
 
 <template>
   <section class="platform-proof" aria-labelledby="platform-title">
-    <div class="proof-title"><h2 id="platform-title">Captura e painel no macOS</h2><span class="proof-label">Prova 0.3</span></div>
+    <div class="proof-title"><h2 id="platform-title">Captura e painel</h2><span class="proof-label">{{ status?.platform === 'linux' ? 'Prova 0.4 · Linux' : 'Prova 0.3 · macOS' }}</span></div>
     <p class="muted">Selecione uma janela de teste ou do jogo. Capturas ficam neste dispositivo e só acontecem por comando seu.</p>
     <p v-if="!isDesktop()" role="status">Abra o aplicativo desktop para testar permissões, captura e foco. A prévia web não acessa essas funções.</p>
     <template v-else>
-      <p v-if="status && !status.supported" role="status">Esta prova requer macOS 14 ou posterior.</p>
+      <p v-if="status && !status.supported" role="status">Integração indisponível nesta sessão. No Linux, é necessário acesso ao servidor X11/XWayland.</p>
+      <p v-if="status?.platform === 'linux'" class="muted">Experimental: somente janelas X11/XWayland deste servidor gráfico. Janelas Wayland nativas não aparecem. Captura exige Composite; sobreposição, atalhos e foco dependem do compositor. Gaming Mode ainda requer validação.</p>
       <div class="permission-row">
-        <span>{{ status?.permissionGranted ? 'Gravação da Tela permitida' : 'Permissão de Gravação da Tela necessária' }}</span>
+        <span>{{ status?.permissionGranted ? (status.platform === 'linux' ? 'Conexão X11 disponível' : 'Gravação da Tela permitida') : 'Permissão de Gravação da Tela necessária' }}</span>
         <button v-if="!status?.permissionGranted" :disabled="busy || !status?.supported" @click="perform(async () => { await requestScreenPermission(); await refreshWindows(); })">Solicitar permissão</button>
         <button :disabled="busy" @click="perform(refreshWindows)">Atualizar janelas</button>
       </div>
-      <p v-if="status?.supported && !status.permissionGranted" class="muted">Após autorizar nos Ajustes do Sistema, atualize a lista. O macOS pode exigir encerrar e abrir o Coplayer novamente.</p>
+      <p v-if="status?.platform === 'macos' && status.supported && !status.permissionGranted" class="muted">Após autorizar nos Ajustes do Sistema, atualize a lista. O macOS pode exigir encerrar e abrir o Coplayer novamente.</p>
       <label for="capture-target">Janela a capturar</label>
       <select id="capture-target" v-model="selectedKey" :disabled="busy || !windows.length" @change="perform(selectWindow)">
         <option value="" disabled>Atualize a lista e escolha uma janela</option>
@@ -104,7 +105,7 @@ onBeforeUnmount(() => { disposed = true; subscriptions.forEach((unlisten) => unl
         <button :disabled="busy || !status?.selected" @click="perform(enableOverlay)">{{ status?.iconVisible ? 'Desativar ícone flutuante' : 'Ativar ícone flutuante' }}</button>
         <button :disabled="busy || !status?.selected" @click="perform(async () => { await togglePanel(); })">Voltar ao aplicativo selecionado</button>
       </div>
-      <p class="shortcuts">Painel: <kbd>⌘ ⇧ Espaço</kbd> · Captura: <kbd>⌘ ⇧ 9</kbd>. Arraste o puxador do ícone para movê-lo.</p>
+      <p class="shortcuts">Painel: <kbd>{{ status?.platform === 'linux' ? 'Ctrl ⇧ Espaço' : '⌘ ⇧ Espaço' }}</kbd> · Captura: <kbd>{{ status?.platform === 'linux' ? 'Ctrl ⇧ 9' : '⌘ ⇧ 9' }}</kbd>. Arraste o puxador do ícone para movê-lo.</p>
       <p v-if="status?.shortcutError" class="error" role="alert">Atalho indisponível: {{ status.shortcutError }}. Use os botões.</p>
       <p v-if="error" class="error" role="alert">{{ error }}</p>
       <p v-if="message" role="status">{{ message }}</p>

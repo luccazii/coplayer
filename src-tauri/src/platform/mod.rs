@@ -1,4 +1,6 @@
 pub mod browser;
+#[cfg(target_os = "linux")]
+mod linux;
 
 use crate::storage::{self, Attachment, PendingAttachment, Source, StorageState};
 use serde::{Deserialize, Serialize};
@@ -35,6 +37,7 @@ pub struct PlatformState {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlatformStatus {
+    platform: String,
     supported: bool,
     permission_granted: bool,
     selected: Option<WindowTarget>,
@@ -83,7 +86,12 @@ fn native(request: Value) -> Result<Value, String> {
     Ok(value)
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "linux")]
+fn native(request: Value) -> Result<Value, String> {
+    linux::request(request)
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 fn native(request: Value) -> Result<Value, String> {
     if request["action"] == "status" {
         Ok(json!({"supported": false, "permissionGranted": false}))
@@ -123,7 +131,9 @@ fn toggle_panel(app: &AppHandle) -> Result<(), String> {
     if panel.is_visible().map_err(|e| e.to_string())? {
         let target = selection(app)?;
         panel.hide().map_err(|e| e.to_string())?;
-        if let Err(error) = native(json!({"action": "activate", "pid": target.pid})) {
+        if let Err(error) =
+            native(json!({"action": "activate", "pid": target.pid, "windowId": target.id}))
+        {
             let _ = panel.show();
             let _ = panel.set_focus();
             return Err(error);
@@ -229,6 +239,7 @@ pub async fn platform_status(app: AppHandle) -> Result<PlatformStatus, String> {
         let status = native(json!({"action": "status"}))?;
         let state = app.state::<PlatformState>();
         Ok(PlatformStatus {
+            platform: std::env::consts::OS.to_owned(),
             supported: status["supported"].as_bool().unwrap_or(false),
             permission_granted: status["permissionGranted"].as_bool().unwrap_or(false),
             selected: state.selected.lock().map_err(|e| e.to_string())?.clone(),
@@ -308,7 +319,7 @@ pub fn platform_set_icon_visible(app: AppHandle, visible: bool) -> Result<(), St
     }
     let icon = app
         .get_webview_window("coplayer-icon")
-        .ok_or("Ícone disponível apenas no macOS.")?;
+        .ok_or("Ícone indisponível nesta sessão.")?;
     if visible { icon.show() } else { icon.hide() }.map_err(|e| e.to_string())?;
     if let Some(panel) = app.get_webview_window("main") {
         panel
@@ -330,14 +341,18 @@ pub fn platform_remove_capture(app: AppHandle, id: String) -> Result<(), String>
 }
 
 pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
         use tauri_plugin_global_shortcut::{
             Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState,
         };
-        let panel_shortcut = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::Space);
-        let capture_shortcut =
-            Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::Digit9);
+        let modifier = if cfg!(target_os = "macos") {
+            Modifiers::SUPER
+        } else {
+            Modifiers::CONTROL
+        };
+        let panel_shortcut = Shortcut::new(Some(modifier | Modifiers::SHIFT), Code::Space);
+        let capture_shortcut = Shortcut::new(Some(modifier | Modifiers::SHIFT), Code::Digit9);
         app.plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(move |app, shortcut, event| {
@@ -369,8 +384,12 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                 .build(),
         )?;
         let mut errors = Vec::new();
-        for (shortcut, label) in [(panel_shortcut, "⌘⇧Espaço"), (capture_shortcut, "⌘⇧9")]
-        {
+        let labels = if cfg!(target_os = "macos") {
+            ["⌘⇧Espaço", "⌘⇧9"]
+        } else {
+            ["Ctrl⇧Espaço", "Ctrl⇧9"]
+        };
+        for (shortcut, label) in [(panel_shortcut, labels[0]), (capture_shortcut, labels[1])] {
             if let Err(error) = app.global_shortcut().register(shortcut) {
                 errors.push(format!("{label}: {error}"));
             }
@@ -397,7 +416,7 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         .focused(false)
         .build()?;
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     let _ = app;
     Ok(())
 }

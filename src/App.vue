@@ -41,13 +41,13 @@ onUnmounted(() => { mounted = false; unlisten.forEach((stop) => stop()); });
       <p class="description">Assinatura e anexos salvos neste dispositivo. A captura foi validada no macOS, em Victoria 3 no modo janela; campanhas e conversas serão adicionadas na próxima etapa.</p>
       <p v-if="info" class="native-status" role="status">Núcleo conectado · {{ info.platform }} / {{ info.architecture }}</p>
       <p v-else-if="error" role="alert">{{ error }}</p>
-      <p v-if="info?.platform === 'linux'" class="notice" role="status">Prova inicial Linux · 0.4 em andamento. Teste a janela, o teclado e a assinatura com imagens importadas. Captura, ícone flutuante e retorno de foco ao jogo ainda não estão implementados no Linux.</p>
+      <p v-if="info?.platform === 'linux'" class="notice" role="status">Prova inicial Linux · 0.4 em andamento. Captura isolada X11/XWayland, ícone e retorno de foco estão em avaliação. Gaming Mode, controle e teclado virtual ainda precisam de prova no aparelho.</p>
     </section>
     <p v-if="!desktop" class="notice">Prévia no navegador. Abra o aplicativo desktop para usar autenticação, captura e foco nativos.</p>
     <template v-else>
       <nav aria-label="Provas técnicas">
         <button type="button" :aria-pressed="activeTab === 'provider'" @click="activeTab = 'provider'">0.2 · Assinatura e imagens</button>
-        <button type="button" :aria-pressed="activeTab === 'platform'" @click="activeTab = 'platform'">0.3 · Captura e painel</button>
+        <button type="button" :aria-pressed="activeTab === 'platform'" @click="activeTab = 'platform'">{{ info?.platform === 'linux' ? '0.4' : '0.3' }} · Captura e painel</button>
       </nav>
       <ProviderProof v-show="activeTab === 'provider'" />
       <PlatformProof v-show="activeTab === 'platform'" />

@@ -13,6 +13,7 @@ import type { Attachment } from "./attachments";
 export type CaptureArtifact = Attachment;
 
 export interface PlatformStatus {
+  platform: string;
   supported: boolean;
   permissionGranted: boolean;
   selected: WindowTarget | null;

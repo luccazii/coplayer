@@ -567,6 +567,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-global-shortcut",
  "tokio",
+ "x11rb",
 ]
 
 [[package]]
