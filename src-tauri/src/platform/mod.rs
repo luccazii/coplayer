@@ -1,3 +1,5 @@
+pub mod browser;
+
 use crate::storage::{self, Attachment, PendingAttachment, Source, StorageState};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};

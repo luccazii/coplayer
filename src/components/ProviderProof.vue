@@ -16,6 +16,8 @@ const prompt = ref("Compare as imagens anexadas. Liste o que você observa em ca
 const model = ref("");
 const busy = ref(false);
 const error = ref("");
+const loginLink = ref<HTMLTextAreaElement | null>(null);
+const copyNotice = ref("");
 let pollTimer: ReturnType<typeof setTimeout> | undefined;
 let disposed = false;
 let polling = false;
@@ -30,7 +32,9 @@ async function refresh() {
   if (!desktop || polling || disposed) return;
   polling = true;
   try {
+    const previousLoginUrl = status.value?.loginUrl;
     status.value = await providerStatus();
+    if (previousLoginUrl !== status.value.loginUrl) copyNotice.value = "";
     if (!status.value.models.some((option) => option.id === model.value)) {
       model.value = status.value.models.find((option) => option.isDefault)?.id ?? status.value.models[0]?.id ?? "";
     }
@@ -63,6 +67,18 @@ async function stop() {
   await refresh();
 }
 async function importImages() { await providerImportImages(); images.value = await providerImages(); }
+async function copyLoginLink() {
+  const url = status.value?.loginUrl;
+  if (!url) return;
+  try {
+    await navigator.clipboard.writeText(url);
+    copyNotice.value = "Link copiado. Cole no navegador deste dispositivo para concluir o login.";
+  } catch {
+    loginLink.value?.focus();
+    loginLink.value?.select();
+    copyNotice.value = "Link selecionado. Use Ctrl+C ou o menu de copiar e cole no navegador.";
+  }
+}
 async function removeImage(id: string) {
   try { await providerRemoveImage(id); }
   finally { images.value = await providerImages(); }
@@ -92,6 +108,12 @@ onUnmounted(() => { disposed = true; if (pollTimer) clearTimeout(pollTimer); });
         <button v-if="ready || status?.runtime === 'starting'" type="button" @click="stop">Encerrar runtime</button>
       </div>
       <p class="proof-status" role="status" aria-live="polite">{{ status?.message ?? "Consultando o núcleo…" }}</p>
+      <div v-if="status?.loginPending && status.loginUrl" class="proof-login">
+        <label for="proof-login-url">Link de login</label>
+        <textarea id="proof-login-url" ref="loginLink" :value="status.loginUrl" readonly rows="3" spellcheck="false" @focus="loginLink?.select()"></textarea>
+        <button type="button" @click="copyLoginLink">Copiar link</button>
+        <p class="proof-meta" role="status">{{ copyNotice || "Se o navegador não abrir, copie este link e cole no navegador deste dispositivo." }}</p>
+      </div>
       <p class="proof-meta">Runtime {{ status?.runtimeVersion ?? "0.159.3" }} · credenciais isoladas · sem troca automática para API paga</p>
       <form @submit.prevent="run(() => providerAnalyze(prompt, model, images.map((image) => image.id)))">
         <label for="proof-model">Modelo visual</label>
@@ -143,6 +165,9 @@ h3 { font-size: 15px; margin: 0 0 12px; }
 .proof-copy, .proof-status, .proof-notice { color: #bdc7bf; font-size: 13px; line-height: 1.7; }
 .proof-meta { font-size: 11px; color: #9cae9f; line-height: 1.6; }
 .proof-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.proof-login { margin-top: 16px; padding: 14px; border: 1px solid #46554b; border-radius: 6px; }
+.proof-login textarea { min-height: 72px; font-size: 11px; overflow-wrap: anywhere; }
+.proof-login button { margin-top: 8px; }
 form { margin-top: 26px; padding-top: 22px; border-top: 1px solid #38443c; }
 label { display: block; font-size: 12px; margin: 0 0 8px; color: #d5dfd7; }
 select, textarea { width: 100%; font: inherit; font-size: 13px; background: #141b17; color: #e8e7e0; border: 1px solid #46554b; border-radius: 6px; padding: 11px; }

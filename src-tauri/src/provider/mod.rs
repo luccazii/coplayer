@@ -53,6 +53,7 @@ pub struct ProviderStatus {
     pub authenticated: bool,
     pub plan: Option<String>,
     pub login_pending: bool,
+    pub login_url: Option<String>,
     pub message: String,
     pub models: Vec<ModelOption>,
     pub analysis: Option<Analysis>,
@@ -66,6 +67,7 @@ impl Default for ProviderStatus {
             authenticated: false,
             plan: None,
             login_pending: false,
+            login_url: None,
             message: "Inicie o runtime para conectar sua assinatura.".into(),
             models: Vec::new(),
             analysis: None,
@@ -269,6 +271,7 @@ async fn start_inner(app: &AppHandle, state: &ProviderState, epoch: u64) -> Resu
                     inner.status.runtime = "failed".into();
                     inner.status.authenticated = false;
                     inner.status.login_pending = false;
+                    inner.status.login_url = None;
                     inner.login_id = None;
                     inner.status.message =
                         "Runtime desconectado. Inicie novamente; pedidos não são reenviados."
@@ -284,6 +287,11 @@ async fn start_inner(app: &AppHandle, state: &ProviderState, epoch: u64) -> Resu
                 }
                 "account/updated" => {
                     inner.status.authenticated = params["authMode"].as_str() == Some("chatgpt");
+                    if inner.status.authenticated {
+                        inner.status.login_pending = false;
+                        inner.status.login_url = None;
+                        inner.login_id = None;
+                    }
                     inner.status.plan = params["planType"].as_str().map(str::to_string);
                     inner.status.message = if inner.status.authenticated {
                         "Assinatura conectada; acesso ao modelo ainda precisa da análise real."
@@ -295,6 +303,7 @@ async fn start_inner(app: &AppHandle, state: &ProviderState, epoch: u64) -> Resu
                 "account/login/completed" => {
                     if inner.login_id.as_deref() == params["loginId"].as_str() {
                         inner.status.login_pending = false;
+                        inner.status.login_url = None;
                         inner.login_id = None;
                         if params["success"].as_bool() != Some(true) {
                             inner.status.message =
@@ -317,6 +326,9 @@ async fn start_inner(app: &AppHandle, state: &ProviderState, epoch: u64) -> Resu
             if shutdown {
                 inner.status.runtime = "failed".into();
                 inner.status.authenticated = false;
+                inner.status.login_pending = false;
+                inner.status.login_url = None;
+                inner.login_id = None;
                 inner.status.message = "Runtime encerrado após exceder limites da prova ou solicitar ferramenta não permitida.".into();
                 if let Some(analysis) = inner
                     .status
@@ -405,32 +417,21 @@ pub async fn provider_login(state: State<'_, ProviderState>) -> Result<(), Strin
         if inner.epoch != epoch {
             return Err("Runtime reiniciado durante o login.".into());
         }
-        inner.login_id = Some(login_id.clone());
+        inner.login_id = Some(login_id);
         inner.status.login_pending = true;
+        inner.status.login_url = Some(url.to_owned());
         inner.status.message =
             "Conclua o login no navegador. As credenciais ficam separadas do seu aplicativo Codex."
                 .into();
     }
-    #[cfg(target_os = "macos")]
-    let opened = std::process::Command::new("/usr/bin/open")
-        .arg(url)
-        .status()
-        .is_ok_and(|status| status.success());
-    #[cfg(target_os = "linux")]
-    let opened = std::process::Command::new("/usr/bin/xdg-open")
-        .arg(url)
-        .status()
-        .is_ok_and(|status| status.success());
-    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
-    let opened = false;
+    let opened = crate::platform::browser::open_browser(url).await;
     if !opened {
-        let _ = rpc
-            .request("account/login/cancel", json!({"loginId":login_id}))
-            .await;
         let mut inner = state.inner.lock().await;
-        inner.status.login_pending = false;
-        inner.login_id = None;
-        return Err("Não foi possível abrir o navegador para login.".into());
+        if inner.epoch == epoch && inner.status.login_pending {
+            inner.status.message =
+                "Não foi possível abrir o navegador. Copie o link abaixo e cole no navegador para concluir o login."
+                    .into();
+        }
     }
     Ok(())
 }
@@ -457,6 +458,7 @@ pub async fn provider_cancel_login(state: State<'_, ProviderState>) -> Result<()
     if inner.epoch == epoch {
         inner.login_id = None;
         inner.status.login_pending = false;
+        inner.status.login_url = None;
         inner.status.message = "Login cancelado.".into();
     }
     Ok(())
@@ -739,6 +741,7 @@ async fn stop_inner(state: &ProviderState) {
         inner.status.runtime = "stopped".into();
         inner.status.authenticated = false;
         inner.status.login_pending = false;
+        inner.status.login_url = None;
         inner.login_id = None;
         if let Some(analysis) = inner
             .status
