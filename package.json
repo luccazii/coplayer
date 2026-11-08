@@ -16,7 +16,7 @@
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml --locked",
     "build": "npm run check:frontend && vite build",
     "build:desktop": "tauri build --bundles app && npm run verify:bundle",
-    "build:desktop:linux": "tauri build --bundles appimage && node scripts/verify-linux-bundle.mjs",
+    "build:desktop:linux": "NO_STRIP=1 tauri build --bundles appimage && node scripts/verify-linux-bundle.mjs",
     "build:legion": "node scripts/build-legion.mjs",
     "verify:bundle": "node scripts/verify-bundle.mjs",
     "preview": "vite preview",

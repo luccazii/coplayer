@@ -2,7 +2,7 @@
 
 ## Base atual
 
-Base e provas 0.1–0.3 aceitas; consolidação 0.5 concluída no macOS, com Legion/0.4 adiado pelo jogador. O aplicativo desktop Tauri 2 apresenta duas provas independentes: assinatura com imagens importadas e captura/painel macOS. A janela consulta `get_app_info` para verificar o núcleo. No navegador, a tela informa que é somente uma prévia e não apresenta controles nativos operáveis.
+Base e provas 0.1–0.3 aceitas; consolidação 0.5 concluída no macOS. Legion/0.4 retomado pelo jogador, com preparação de pacote Linux via GitHub Actions; veja o [roteiro do Legion](legion-proof.md). O aplicativo desktop Tauri 2 apresenta duas provas independentes: assinatura com imagens importadas e captura/painel macOS. A janela consulta `get_app_info` para verificar o núcleo. No navegador, a tela informa que é somente uma prévia e não apresenta controles nativos operáveis.
 
 Há implementação experimental de provedor e plataforma, com catálogo SQLite de anexos e sem campanhas. Os ícones são provisórios, provenientes do template oficial. Um build não comprova acesso ao modelo, captura, foco ou sobreposição no jogo. Veja os registros de execução no plano para distinguir código de evidência.
 

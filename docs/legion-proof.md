@@ -6,6 +6,8 @@ Alvo confirmado pelo jogador: Legion Go S com SteamOS. Esta etapa prepara um **p
 
 Workflow: `.github/workflows/legion.yml`, nome **Legion Linux package**. Usa runner `ubuntu-22.04` x86_64, Node de `.nvmrc`, Rust de `rust-toolchain.toml` e ambos os lockfiles. Executa build de frontend, Clippy/formatação, testes Rust, build AppImage e verificação de arquitetura/hashes/runtime. A versão do aplicativo continua 0.1.0; 0.4 é o identificador da subfase.
 
+O comando Linux usa `NO_STRIP=1` no linuxdeploy: o runtime oficial já chega preparado e não pode ser reescrito pelo empacotador, pois seu SHA-256 precisa corresponder ao manifesto. O executável Coplayer continua usando o perfil release Rust com `strip = true`. A verificação extrai o pacote final e recusa divergência.
+
 Após publicar o projeto no repositório escolhido, o workflow executa no push de `main` e `codex/legion-*`; também pode ser iniciado por **Actions → Legion Linux package → Run workflow** quando o arquivo estiver na branch padrão. O artefato `coplayer-legion-linux-x86_64-<commit>` só é publicado após os gates passarem e fica disponível por 14 dias. Não cria release pública e não precisa de credenciais ChatGPT na CI.
 
 O ZIP contém `Coplayer-Linux-x86_64.AppImage`, `start-coplayer.sh`, este roteiro como `LEIA-ME.md` e `SHA256SUMS`. Ainda é necessário conferir a execução no SteamOS; compilar no Ubuntu não prova compatibilidade gráfica no aparelho.

@@ -88,6 +88,7 @@ Testes automatizados focam regras e contratos; simuladores servem a cenários de
 - **Roteiro:** [Prova Legion](legion-proof.md) separa bootstrap, assinatura e capacidades ainda não implementadas de overlay/captura/foco no Linux. 0.4/T05 não concluídos.
 - **Publicação autorizada:** o jogador escolheu repositório público e download de executável no Legion. Repositório `luccazii/coplayer` criado; pacote aprovado pela CI será disponibilizado como pré-release experimental. Isso excepciona a restrição anterior de publicação apenas para este repositório/pacote de prova, sem declarar distribuição estável.
 - **Gates locais:** `npm run build`, `npm run check:rust`, `npm run test:rust` (19 testes) e `npm run build:desktop` passaram. Bundle macOS ARM64 e hash do runtime verificados. Aplicativo encerrado/reaberto: UI atualizada, `Núcleo conectado · macos / aarch64`, dois anexos sintéticos recuperados e runtime parado, sem reenvio. Scripts Node/shell e YAML verificados; seleção do manifesto rejeita arquitetura não definida. Build Linux e aceites do aparelho continuam pendentes até execução remota.
+- **Primeira CI Linux:** frontend, Clippy e 19 testes passaram; executável e AppImage foram gerados, mas o verificador bloqueou publicação por hash do runtime alterado no empacotamento. Build passou a desativar o strip do linuxdeploy (`NO_STRIP=1`), preservando a verificação contra o manifesto oficial. O pacote com hash divergente não foi publicado. A CI macOS desse commit concluiu com sucesso.
 
 ### Aceite 0.3 e avanço macOS — 2026-11-07
 
