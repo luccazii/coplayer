@@ -1,3 +1,4 @@
+mod campaign;
 mod commands;
 mod platform;
 mod provider;
@@ -29,6 +30,16 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_app_info,
+            commands::campaign_workspace,
+            commands::campaign_create,
+            commands::campaign_select,
+            commands::chat_create,
+            commands::chat_select,
+            commands::chat_save_draft,
+            commands::chat_remove_attachment,
+            commands::chat_submit_message,
+            commands::chat_message_attachments,
+            platform::chat_capture,
             commands::get_attachment_policy,
             platform::platform_status,
             platform::platform_request_permission,
