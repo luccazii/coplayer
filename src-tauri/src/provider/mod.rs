@@ -411,18 +411,7 @@ pub async fn provider_login(state: State<'_, ProviderState>) -> Result<(), Strin
             "Conclua o login no navegador. As credenciais ficam separadas do seu aplicativo Codex."
                 .into();
     }
-    #[cfg(target_os = "macos")]
-    let opened = std::process::Command::new("/usr/bin/open")
-        .arg(url)
-        .status()
-        .is_ok_and(|status| status.success());
-    #[cfg(target_os = "linux")]
-    let opened = std::process::Command::new("/usr/bin/xdg-open")
-        .arg(url)
-        .status()
-        .is_ok_and(|status| status.success());
-    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
-    let opened = false;
+    let opened = crate::platform::browser::open_browser(url).await;
     if !opened {
         let _ = rpc
             .request("account/login/cancel", json!({"loginId":login_id}))
