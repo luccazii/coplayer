@@ -20,6 +20,7 @@ export interface ProviderStatus {
   authenticated: boolean;
   plan: string | null;
   loginPending: boolean;
+  loginUrl: string | null;
   message: string;
   models: ModelOption[];
   analysis: ProofAnalysis | null;
