@@ -3,6 +3,7 @@ use super::*;
 use crate::campaign::{DraftTarget, LocalMessage, SubmitMessage, Workspace};
 
 impl Store {
+    #[cfg(any(target_os = "macos", test))]
     pub fn selected_draft(&self) -> Result<DraftTarget, String> {
         self.connection.query_row(
             "SELECT s.campaign_id, s.chat_id, c.draft_generation FROM local_selection s JOIN chats c ON c.id=s.chat_id AND c.campaign_id=s.campaign_id WHERE singleton=1",
