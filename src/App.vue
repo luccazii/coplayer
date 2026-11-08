@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from "vue";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import type { UnlistenFn } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getAppInfo, isDesktop, type AppInfo } from "./lib/desktop";
+import CampaignWorkspace from "./components/CampaignWorkspace.vue";
 import ProviderProof from "./components/ProviderProof.vue";
 import PlatformProof from "./components/PlatformProof.vue";
 import FloatingIcon from "./components/FloatingIcon.vue";
 
 const iconSurface = new URLSearchParams(window.location.search).get("surface") === "icon";
 const desktop = isDesktop();
-const activeTab = ref<"provider" | "platform">("provider");
+const activeTab = ref<"campaigns" | "provider" | "platform">("campaigns");
 const info = ref<AppInfo | null>(null);
 const error = ref("");
 const unlisten: UnlistenFn[] = [];
@@ -17,9 +19,9 @@ onMounted(async () => {
   if (!desktop || iconSurface) return;
   try { info.value = await getAppInfo(); }
   catch (cause) { error.value = String(cause); }
-  for (const name of ["platform-capture", "platform-error"]) {
+  for (const name of ["platform-capture", "platform-error", "chat-capture", "chat-capture-error"]) {
     try {
-      const stop = await listen(name, () => { activeTab.value = "platform"; });
+      const stop = await getCurrentWebviewWindow().listen(name, () => { activeTab.value = name.startsWith("chat-") ? "campaigns" : "platform"; });
       if (mounted) unlisten.push(stop);
       else stop();
     } catch (cause) { error.value = String(cause); }
@@ -33,26 +35,28 @@ onUnmounted(() => { mounted = false; unlisten.forEach((stop) => stop()); });
   <main v-else>
     <header>
       <span class="wordmark">coplayer<span aria-hidden="true">.</span></span>
-      <span class="stage">Base local · 0.5</span>
+      <span class="stage">Capturas no chat · 1.2</span>
     </header>
     <section class="intro">
       <p class="eyebrow">LABORATÓRIO LOCAL</p>
-      <h1>Conectar, observar e verificar.</h1>
-      <p class="description">Assinatura e anexos salvos neste dispositivo. A captura foi validada no macOS, em Victoria 3 no modo janela; campanhas e conversas serão adicionadas na próxima etapa.</p>
+      <h1>Cada partida, seu próprio contexto.</h1>
+      <p class="description">Campanhas, configuração de origem e rascunhos salvos neste dispositivo. Capture para o chat e registre mensagens localmente; a análise pela assinatura vem na próxima etapa.</p>
       <p v-if="info" class="native-status" role="status">Núcleo conectado · {{ info.platform }} / {{ info.architecture }}</p>
       <p v-else-if="error" role="alert">{{ error }}</p>
       <p v-if="info?.platform === 'linux'" class="notice" role="status">Prova inicial Linux · 0.4 em andamento. Teste a janela, o teclado e a assinatura com imagens importadas. Captura, ícone flutuante e retorno de foco ao jogo ainda não estão implementados no Linux.</p>
     </section>
     <p v-if="!desktop" class="notice">Prévia no navegador. Abra o aplicativo desktop para usar autenticação, captura e foco nativos.</p>
     <template v-else>
-      <nav aria-label="Provas técnicas">
+      <nav aria-label="Áreas do aplicativo">
+        <button type="button" :aria-pressed="activeTab === 'campaigns'" @click="activeTab = 'campaigns'">Campanhas e chats</button>
         <button type="button" :aria-pressed="activeTab === 'provider'" @click="activeTab = 'provider'">0.2 · Assinatura e imagens</button>
         <button type="button" :aria-pressed="activeTab === 'platform'" @click="activeTab = 'platform'">0.3 · Captura e painel</button>
       </nav>
+      <CampaignWorkspace v-show="activeTab === 'campaigns'" />
       <ProviderProof v-show="activeTab === 'provider'" />
       <PlatformProof v-show="activeTab === 'platform'" />
     </template>
-    <footer>Provas experimentais. Campanhas, histórico persistente e fila pertencem às próximas subfases.</footer>
+    <footer>Dados locais, sem sincronização. As provas técnicas ficam separadas das conversas. Envio integrado e histórico de análises pertencem à 1.3.</footer>
   </main>
 </template>
 
@@ -60,7 +64,7 @@ onUnmounted(() => { mounted = false; unlisten.forEach((stop) => stop()); });
 :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #e8e7e0; background: #161b19; font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; color-scheme: dark; }
 * { box-sizing: border-box; }
 body { margin: 0; }
-main { max-width: 1120px; margin: 0 auto; padding: 28px 40px; }
+main { max-width: 1440px; margin: 0 auto; padding: 28px 40px; }
 header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .wordmark { font-size: 26px; font-weight: 700; letter-spacing: -1px; }
 .wordmark span { color: #bed594; }

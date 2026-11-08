@@ -2,7 +2,7 @@
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { access, readFile } from "node:fs/promises";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { constants } from "node:fs";
 import { resolve } from "node:path";
 
@@ -25,4 +25,9 @@ const plist = JSON.parse(execFileSync("/usr/bin/plutil", ["-convert", "json", "-
 if (plist.CFBundleIdentifier !== "dev.coplayer.desktop" || plist.LSMinimumSystemVersion !== "14.0") {
   throw new Error("Identidade ou versão mínima do pacote inesperada.");
 }
-console.log(`Pacote verificado: macOS 14+, ARM64, runtime ${manifest.version} íntegro e executável.`);
+execFileSync("/usr/bin/codesign", ["--verify", "--strict", resolve(bundle, "..")]);
+const signature = spawnSync("/usr/bin/codesign", ["-dv", "--verbose=2", resolve(bundle, "..")], { encoding: "utf8" });
+if (signature.status !== 0 || !signature.stderr.includes("Identifier=dev.coplayer.desktop\n") || signature.stderr.includes("Info.plist=not bound") || signature.stderr.includes("Sealed Resources=none")) {
+  throw new Error("Bundle sem assinatura vinculada à identidade e aos recursos do aplicativo.");
+}
+console.log(`Pacote verificado: assinatura do bundle íntegra, macOS 14+, ARM64, runtime ${manifest.version} íntegro e executável.`);

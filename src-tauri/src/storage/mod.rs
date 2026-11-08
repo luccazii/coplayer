@@ -1,4 +1,6 @@
 //! Local attachment ownership. No platform or provider API belongs in this module.
+mod campaigns;
+mod messages;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use image::{ImageFormat, ImageReader, Limits};
 use rusqlite::{Connection, OptionalExtension, params};
@@ -152,12 +154,24 @@ impl Store {
         let version: u32 = connection
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .map_err(failure)?;
-        if version > 1 {
+        if version > 3 {
             return Err("Este banco foi criado por uma versão mais recente do Coplayer.".into());
         }
         if version == 0 {
             let tx = connection.transaction().map_err(failure)?;
             tx.execute_batch(include_str!("schema.sql"))
+                .map_err(failure)?;
+            tx.commit().map_err(failure)?;
+        }
+        if version < 2 {
+            let tx = connection.transaction().map_err(failure)?;
+            tx.execute_batch(include_str!("campaigns.sql"))
+                .map_err(failure)?;
+            tx.commit().map_err(failure)?;
+        }
+        if version < 3 {
+            let tx = connection.transaction().map_err(failure)?;
+            tx.execute_batch(include_str!("messages.sql"))
                 .map_err(failure)?;
             tx.commit().map_err(failure)?;
         }
@@ -223,26 +237,37 @@ impl Store {
         Ok(())
     }
     fn rows(&self, source: Source) -> Result<Vec<(Attachment, String)>, String> {
+        self.scoped_rows(Some(source), None, None)
+    }
+    fn scoped_rows(
+        &self,
+        source: Option<Source>,
+        chat_id: Option<&str>,
+        message_id: Option<&str>,
+    ) -> Result<Vec<(Attachment, String)>, String> {
         let mut statement = self.connection.prepare(
-            "SELECT id, name, mime, byte_count, width, height, created_at_ms, sha256 FROM attachments WHERE source = ?1 AND deleted = 0 ORDER BY created_at_ms, rowid"
+            "SELECT id, name, mime, byte_count, width, height, created_at_ms, sha256 FROM attachments WHERE (?1 IS NULL OR source = ?1) AND owner_chat_id IS ?2 AND message_id IS ?3 AND deleted = 0 ORDER BY created_at_ms, rowid"
         ).map_err(failure)?;
         statement
-            .query_map([source.value()], |row| {
-                Ok((
-                    Attachment {
-                        id: row.get(0)?,
-                        name: row.get(1)?,
-                        mime: row.get(2)?,
-                        bytes: u64::from(row.get::<_, u32>(3)?),
-                        width: row.get(4)?,
-                        height: row.get(5)?,
-                        created_at_ms: row.get(6)?,
-                        available: false,
-                        preview_data_url: String::new(),
-                    },
-                    row.get(7)?,
-                ))
-            })
+            .query_map(
+                params![source.map(Source::value), chat_id, message_id],
+                |row| {
+                    Ok((
+                        Attachment {
+                            id: row.get(0)?,
+                            name: row.get(1)?,
+                            mime: row.get(2)?,
+                            bytes: u64::from(row.get::<_, u32>(3)?),
+                            width: row.get(4)?,
+                            height: row.get(5)?,
+                            created_at_ms: row.get(6)?,
+                            available: false,
+                            preview_data_url: String::new(),
+                        },
+                        row.get(7)?,
+                    ))
+                },
+            )
             .map_err(failure)?
             .collect::<Result<Vec<_>, _>>()
             .map_err(failure)
@@ -255,8 +280,10 @@ impl Store {
         Ok(bytes)
     }
     pub fn list(&self, source: Source) -> Result<Vec<Attachment>, String> {
-        self.rows(source)?
-            .into_iter()
+        self.previews(self.rows(source)?)
+    }
+    fn previews(&self, rows: Vec<(Attachment, String)>) -> Result<Vec<Attachment>, String> {
+        rows.into_iter()
             .map(|(mut attachment, hash)| {
                 if let Ok(bytes) = self.verified_bytes(&attachment, &hash) {
                     attachment.available = true;
@@ -272,7 +299,23 @@ impl Store {
         source: Source,
         pending: Vec<PendingAttachment>,
     ) -> Result<Vec<Attachment>, String> {
-        let existing = self.rows(source)?;
+        self.add_scoped(source, None, pending)
+    }
+    fn add_scoped(
+        &mut self,
+        source: Source,
+        chat_id: Option<&str>,
+        pending: Vec<PendingAttachment>,
+    ) -> Result<Vec<Attachment>, String> {
+        let existing = self.scoped_rows(
+            if chat_id.is_some() {
+                None
+            } else {
+                Some(source)
+            },
+            chat_id,
+            None,
+        )?;
         if existing.len() + pending.len() > MAX_ATTACHMENTS {
             return Err("São permitidos até 4 anexos; remova um antes de continuar.".into());
         }
@@ -322,8 +365,8 @@ impl Store {
                 file.write_all(bytes)
                     .and_then(|_| file.sync_all())
                     .map_err(failure)?;
-                tx.execute("INSERT INTO attachments (id, source, name, mime, byte_count, width, height, sha256, created_at_ms) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
-                    params![item.id, source.value(), item.name, item.mime, item.bytes as i64, item.width, item.height, digest(bytes), item.created_at_ms]).map_err(failure)?;
+                tx.execute("INSERT INTO attachments (id, source, name, mime, byte_count, width, height, sha256, created_at_ms, owner_chat_id) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+                    params![item.id, source.value(), item.name, item.mime, item.bytes as i64, item.width, item.height, digest(bytes), item.created_at_ms, chat_id]).map_err(failure)?;
             }
             // Persist directory entries before committing metadata that references them.
             #[cfg(unix)]
@@ -341,17 +384,25 @@ impl Store {
         Ok(prepared.into_iter().map(|(item, _)| item).collect())
     }
     pub fn remove(&mut self, source: Source, id: &str) -> Result<(), String> {
+        self.remove_scoped(Some(source), None, id)
+    }
+    fn remove_scoped(
+        &mut self,
+        source: Option<Source>,
+        chat_id: Option<&str>,
+        id: &str,
+    ) -> Result<(), String> {
         let found: Option<(String, String)> = self
             .connection
             .query_row(
-                "SELECT source, mime FROM attachments WHERE id = ?1",
-                [id],
+                "SELECT source, mime FROM attachments WHERE id = ?1 AND owner_chat_id IS ?2 AND message_id IS NULL",
+                params![id, chat_id],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .optional()
             .map_err(failure)?;
         let (owner, mime) = found.ok_or("Anexo não encontrado nesta coleção.")?;
-        if owner != source.value() {
+        if source.is_some_and(|source| owner != source.value()) {
             return Err("Anexo não encontrado nesta coleção.".into());
         }
         let path = self.path(id, &mime)?;

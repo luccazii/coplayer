@@ -104,7 +104,7 @@ onBeforeUnmount(() => { disposed = true; subscriptions.forEach((unlisten) => unl
         <button :disabled="busy || !status?.selected" @click="perform(enableOverlay)">{{ status?.iconVisible ? 'Desativar ícone flutuante' : 'Ativar ícone flutuante' }}</button>
         <button :disabled="busy || !status?.selected" @click="perform(async () => { await togglePanel(); })">Voltar ao aplicativo selecionado</button>
       </div>
-      <p class="shortcuts">Painel: <kbd>⌘ ⇧ Espaço</kbd> · Captura: <kbd>⌘ ⇧ 9</kbd>. Arraste o puxador do ícone para movê-lo.</p>
+      <p class="shortcuts">Painel: <kbd>⌘ ⇧ Espaço</kbd> · Captura para o chat selecionado: <kbd>⌘ ⇧ 9</kbd>. Use o botão acima para capturar nesta prova. Arraste o puxador do ícone para movê-lo.</p>
       <p v-if="status?.shortcutError" class="error" role="alert">Atalho indisponível: {{ status.shortcutError }}. Use os botões.</p>
       <p v-if="error" class="error" role="alert">{{ error }}</p>
       <p v-if="message" role="status">{{ message }}</p>

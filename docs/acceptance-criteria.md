@@ -1,6 +1,6 @@
 # Critérios de aceitação do MVP
 
-Derivados das decisões aprovadas. **T01 verificado em 2026-11-07** no bundle macOS ARM64, com assinatura ChatGPT e duas imagens sintéticas; evidências no [registro de execução](implementation-plan.md). Os demais critérios completos permanecem **não verificados**, ainda que tenham provas parciais registradas. Os cenários são independentes da stack; comportamentos posteriores do [roadmap](roadmap.md) não bloqueiam o MVP.
+Derivados das decisões aprovadas. **T01 verificado em 2026-11-07** no bundle macOS ARM64, com assinatura ChatGPT e duas imagens sintéticas; evidências no [registro de execução](implementation-plan.md). **C01/C02 verificados no cadastro manual da 1.1**: núcleo exige nome, versão e confirmação de DLCs, inclusive confirmação explícita de lista vazia. A barreira no envio integrado deverá ser revalidada na 1.3; sugestão visual não foi implementada. Os demais critérios completos permanecem **não verificados**, ainda que tenham provas parciais registradas. Os cenários são independentes da stack; comportamentos posteriores do [roadmap](roadmap.md) não bloqueiam o MVP.
 
 ## Pré-requisitos técnicos
 
@@ -25,6 +25,8 @@ Derivados das decisões aprovadas. **T01 verificado em 2026-11-07** no bundle ma
 | C07 | Voltar a save anterior | Usar outra campanha com histórico vazio e cópia opcional de objetivos; original preservada |
 
 ## Overlay, captura e entrada
+
+**Prova parcial da 1.2:** no aplicativo nativo macOS, janela sintética validou captura limpa por botão/atalho, alternância de foco confirmada pelo jogador, remoção, isolamento por chat, registro local explícito e recuperação de texto/imagens após reinício. Escopo sintético escolhido pelo jogador; regressão no Victoria 3 e envio integrado pela assinatura permanecem pendentes. Isso não conclui O01–O03 completos.
 
 | ID | Cenário | Resultado esperado |
 | --- | --- | --- |

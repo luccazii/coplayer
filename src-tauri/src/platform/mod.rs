@@ -1,5 +1,6 @@
 pub mod browser;
 
+use crate::campaign::DraftTarget;
 use crate::storage::{self, Attachment, PendingAttachment, Source, StorageState};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -135,10 +136,17 @@ fn toggle_panel(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn capture(app: &AppHandle) -> Result<CaptureArtifact, String> {
+fn capture(app: &AppHandle, destination: Option<DraftTarget>) -> Result<CaptureArtifact, String> {
     let state = app.state::<PlatformState>();
     let _guard = begin(&state)?;
     let selected = selection(app)?;
+    if let Some(target) = &destination {
+        app.state::<StorageState>()
+            .0
+            .lock()
+            .map_err(|e| e.to_string())?
+            .capture_destination(target)?;
+    }
     let directory = app
         .path()
         .app_local_data_dir()
@@ -200,26 +208,33 @@ fn capture(app: &AppHandle) -> Result<CaptureArtifact, String> {
             ));
         }
         let bytes = storage::read_image(&path)?;
-        let mut artifacts = app
-            .state::<StorageState>()
-            .0
-            .lock()
-            .map_err(|e| e.to_string())?
-            .add(
-                Source::Capture,
-                vec![PendingAttachment {
-                    name: format!("{} · {}", selected.app_name, selected.title),
-                    data: bytes,
-                }],
-            )?;
-        artifacts
-            .pop()
-            .ok_or_else(|| "Nenhuma captura foi armazenada.".to_string())
+        let pending = PendingAttachment {
+            name: format!("{} · {}", selected.app_name, selected.title),
+            data: bytes,
+        };
+        let storage = app.state::<StorageState>();
+        let mut store = storage.0.lock().map_err(|e| e.to_string())?;
+        if let Some(target) = &destination {
+            store.add_chat_capture(target, pending)
+        } else {
+            store
+                .add(Source::Capture, vec![pending])?
+                .pop()
+                .ok_or_else(|| "Nenhuma captura foi armazenada.".to_string())
+        }
     })();
     let _ = std::fs::remove_file(&path);
     let artifact = persisted?;
-    app.emit_to("main", "platform-capture", &artifact)
-        .map_err(|e| e.to_string())?;
+    // Persistence is authoritative. A lost notification must not invite duplicate capture.
+    if let Some(target) = destination {
+        let _ = app.emit_to(
+            "main",
+            "chat-capture",
+            json!({"target": target, "attachment": artifact}),
+        );
+    } else {
+        let _ = app.emit_to("main", "platform-capture", &artifact);
+    }
     Ok(artifact)
 }
 
@@ -283,7 +298,12 @@ pub async fn platform_select_window(
 
 #[tauri::command]
 pub async fn platform_capture(app: AppHandle) -> Result<CaptureArtifact, String> {
-    worker(move || capture(&app)).await
+    worker(move || capture(&app, None)).await
+}
+
+#[tauri::command]
+pub async fn chat_capture(app: AppHandle, target: DraftTarget) -> Result<CaptureArtifact, String> {
+    worker(move || capture(&app, Some(target))).await
 }
 
 #[tauri::command]
@@ -351,12 +371,28 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                     }
                     tauri::async_runtime::spawn_blocking(move || {
                         let result = if is_capture {
-                            capture(&app).map(|_| ())
+                            let target = app
+                                .state::<StorageState>()
+                                .0
+                                .lock()
+                                .map_err(|e| e.to_string())
+                                .and_then(|store| store.selected_draft());
+                            target
+                                .and_then(|target| capture(&app, Some(target)))
+                                .map(|_| ())
                         } else {
                             toggle_panel(&app)
                         };
                         if let Err(error) = result {
-                            let _ = app.emit_to("main", "platform-error", &error);
+                            let _ = app.emit_to(
+                                "main",
+                                if is_capture {
+                                    "chat-capture-error"
+                                } else {
+                                    "platform-error"
+                                },
+                                &error,
+                            );
                             if !app.state::<PlatformState>().busy.load(Ordering::Acquire)
                                 && let Some(panel) = app.get_webview_window("main")
                             {
