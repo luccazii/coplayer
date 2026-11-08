@@ -2,6 +2,8 @@
 
 Alvo confirmado pelo jogador: Legion Go S com SteamOS. Esta etapa prepara um **pacote experimental Linux x86_64**. Captura, overlay/ícone flutuante e retorno de foco ainda não estão implementados no Linux. O pacote permite começar pela janela Tauri, comunicação com Rust, entrada de texto, anexos importados e runtime de assinatura; nenhum desses resultados isolados conclui T05.
 
+Pacote disponível: [v0.1.0-legion.1](https://github.com/luccazii/coplayer/releases/tag/v0.1.0-legion.1), com [download completo](https://github.com/luccazii/coplayer/releases/download/v0.1.0-legion.1/Coplayer-Legion-x86_64.tar.gz). Build Linux/macOS e 20 testes aprovados; funcionamento no aparelho permanece pendente.
+
 ## Build pelo GitHub Actions
 
 Workflow: `.github/workflows/legion.yml`, nome **Legion Linux package**. Usa runner `ubuntu-22.04` x86_64, Node de `.nvmrc`, Rust de `rust-toolchain.toml` e ambos os lockfiles. Executa build de frontend, Clippy/formatação, testes Rust, build AppImage e verificação de arquitetura/hashes/runtime. A versão do aplicativo continua 0.1.0; 0.4 é o identificador da subfase.
