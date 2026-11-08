@@ -107,6 +107,22 @@ fn root(app: &AppHandle) -> Result<PathBuf, String> {
         .join("proof-0.2"))
 }
 
+#[cfg(any(target_os = "linux", test))]
+fn linux_runtime_directory(resources: &Path, product_name: &str) -> Result<PathBuf, String> {
+    // Tauri resolves AppImage resources to <AppDir>/usr/lib/<product>.
+    // Keep the static PIE runtime in libexec: linuxdeploy rewrites RPATH for
+    // every ELF under usr/lib, including binaries that have no DT_NEEDED.
+    let library_dir = resources
+        .parent()
+        .filter(|path| path.file_name() == Some(std::ffi::OsStr::new("lib")))
+        .filter(|_| resources.file_name() == Some(std::ffi::OsStr::new(product_name)))
+        .ok_or("Estrutura de recursos do pacote Linux inesperada.")?;
+    let prefix = library_dir
+        .parent()
+        .ok_or("Diretório do pacote Linux indisponível.")?;
+    Ok(prefix.join("libexec").join(product_name))
+}
+
 fn runtime_path(app: &AppHandle) -> Result<PathBuf, String> {
     if !cfg!(any(
         all(target_os = "macos", target_arch = "aarch64"),
@@ -117,10 +133,13 @@ fn runtime_path(app: &AppHandle) -> Result<PathBuf, String> {
     let binary = if cfg!(debug_assertions) {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("runtime/codex")
     } else {
-        app.path()
+        let resources = app
+            .path()
             .resource_dir()
-            .map_err(|_| "Recursos do aplicativo indisponíveis.".to_string())?
-            .join("runtime/codex")
+            .map_err(|_| "Recursos do aplicativo indisponíveis.".to_string())?;
+        #[cfg(target_os = "linux")]
+        let resources = linux_runtime_directory(&resources, &app.package_info().name)?;
+        resources.join("runtime/codex")
     };
     let mut file = fs::File::open(&binary).map_err(|_| {
         "Runtime não encontrado. Execute npm run prepare:runtime e gere o aplicativo novamente."
@@ -755,6 +774,45 @@ impl ProviderState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn linux_runtime_location_matches_bundle_config_and_rejects_unknown_layouts() {
+        let (config, _) = tauri::utils::config::parse::read_from(
+            tauri::utils::platform::Target::Linux,
+            Path::new(env!("CARGO_MANIFEST_DIR")),
+        )
+        .unwrap();
+        let _: tauri::utils::config::Config = serde_json::from_value(config.clone()).unwrap();
+        assert!(config["bundle"]["resources"].is_null());
+        assert_eq!(config["productName"], "Coplayer");
+        let destination = linux_runtime_directory(Path::new("/usr/lib/Coplayer"), "Coplayer")
+            .unwrap()
+            .join("runtime/codex");
+        assert_eq!(
+            config["bundle"]["linux"]["appimage"]["files"][destination.to_str().unwrap()],
+            "runtime/codex"
+        );
+        assert_eq!(
+            linux_runtime_directory(
+                Path::new("/tmp/with spaces/Coplayer.AppDir/usr/lib/Coplayer"),
+                "Coplayer"
+            )
+            .unwrap(),
+            PathBuf::from("/tmp/with spaces/Coplayer.AppDir/usr/libexec/Coplayer")
+        );
+        for path in ["/", "/tmp/target/release", "/usr/lib/Other"] {
+            assert!(linux_runtime_directory(Path::new(path), "Coplayer").is_err());
+        }
+        let (macos_config, _) = tauri::utils::config::parse::read_from(
+            tauri::utils::platform::Target::MacOS,
+            Path::new(env!("CARGO_MANIFEST_DIR")),
+        )
+        .unwrap();
+        assert_eq!(
+            macos_config["bundle"]["resources"]["runtime/codex"],
+            "runtime/codex"
+        );
+    }
+
     #[test]
     fn login_url_rejects_untrusted_origins_and_schemes() {
         assert!(valid_login_url(

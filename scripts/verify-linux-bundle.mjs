@@ -27,12 +27,20 @@ try {
   execFileSync(join(directory, packages[0]), ["--appimage-extract"], { cwd: temporary, stdio: "ignore" });
   const appDir = join(temporary, "squashfs-root");
   const executable = join(appDir, "usr/bin/coplayer");
-  const runtime = join(appDir, "usr/lib", config.productName, "runtime/codex");
+  const runtime = join(appDir, "usr/libexec", config.productName, "runtime/codex");
+  // A duplicate in usr/lib would be rewritten by linuxdeploy and must not ship.
+  try {
+    await access(join(appDir, "usr/lib", config.productName, "runtime/codex"));
+    throw new Error("Runtime duplicado no diretório de bibliotecas.");
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
   await verifyElf(executable);
   await verifyElf(runtime);
   const hash = createHash("sha256");
   for await (const chunk of createReadStream(runtime)) hash.update(chunk);
-  if (hash.digest("hex") !== manifest.executableSha256) throw new Error("Hash do runtime Linux empacotado diverge do manifesto.");
+  const actualHash = hash.digest("hex");
+  if (actualHash !== manifest.executableSha256) throw new Error(`Hash do runtime Linux empacotado diverge do manifesto: ${actualHash}.`);
   const version = execFileSync(runtime, ["--version"], { encoding: "utf8", timeout: 15000 }).trim();
   if (version !== `codex-cli ${manifest.version}`) throw new Error(`Versão inesperada: ${version}`);
   await access(join(appDir, "AppRun"), constants.X_OK);

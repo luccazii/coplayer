@@ -21,6 +21,7 @@
 !src-tauri/Cargo.lock
 !src-tauri/build.rs
 !src-tauri/tauri.conf.json
+!src-tauri/tauri.linux.conf.json
 !src-tauri/runtime-manifest*.json
 !src-tauri/src/
 !src-tauri/src/**
